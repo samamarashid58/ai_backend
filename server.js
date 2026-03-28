@@ -4,19 +4,18 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Load environment variables from .env locally (do NOT push .env to Git)
+// Load environment variables
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// ✅ Middlewares
-app.use(cors({ origin: "*" })); // Allow all origins for global access
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(cors({ origin: "*" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini AI with API key
+const genAI = new GoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // POST endpoint for chat
 app.post("/chat", async (req, res) => {
@@ -31,9 +30,7 @@ app.post("/chat", async (req, res) => {
 
     console.log("📝 User:", message, "| Topic:", topic, "| Lang:", language);
 
-    // 🔥 Language + Topic aware prompt
     let systemPrompt = "";
-
     if (language === "ur") {
       systemPrompt = `
 تم ایک انگریزی بولنے والے پارٹنر ہو۔ لیکن ہمیشہ جوابات اردو میں دو تاکہ یوزر کو سمجھ آئے۔
@@ -56,14 +53,22 @@ The user has selected this topic: "${topic}".
       `;
     }
 
+    // Use messages array instead of { prompt: ... }
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     let aiReply = "Sorry, could not generate a response.";
 
     try {
-      const result = await model.generateContent(`${systemPrompt}\nUser: ${message}`);
-      if (result?.response?.text) {
-        aiReply = result.response.text();
+      const result = await model.generateContent({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+      });
+
+      // The response text is in result.response[0].content[0].text in the new SDK
+      if (result?.response?.[0]?.content?.[0]?.text) {
+        aiReply = result.response[0].content[0].text;
       }
     } catch (gemError) {
       console.error("Gemini API Error:", gemError);
@@ -71,16 +76,17 @@ The user has selected this topic: "${topic}".
     }
 
     res.json({ reply: aiReply, topic, language });
-
   } catch (error) {
     console.error("Server Error:", error);
     res.status(500).json({ error: "Something went wrong", details: error.message });
   }
 });
 
+// Health check
+app.get("/", (req, res) => {
+  res.send("🚀 Gemini API Backend is Running!");
+});
 
-// 🔹 Listen on dynamic port (works locally and on hosted servers)
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log(`📡 Use this URL from Postman or mobile app after deployment.`);
 });
