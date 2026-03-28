@@ -78,7 +78,17 @@ The user has selected this topic: "${topic}".
   }
 });
 
+app.get("/", (req, res) => {
+  res.send("🚀 Gemini API Backend is Running!");
+});
 
+app.post("/chat", async (req, res) => {
+  // your existing code
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+});
 // 🔹 Listen on dynamic port (works locally and on hosted servers)
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
